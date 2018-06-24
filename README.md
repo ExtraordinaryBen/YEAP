@@ -1,4 +1,4 @@
-<div style="text-align:center">
+<div align="center">
 <img src ="https://raw.githubusercontent.com/ExtraordinaryBen/YEAP/master/img/screenshot-animated.png" />
 
 # YEAP
