@@ -261,6 +261,7 @@ class MainWidget(QWidget):
             self.list.filename = ""
             self.frameView.clear()
             self.parent().PlayerToolBarDisable()
+            self.parent().saveAction.setEnabled(False)
             self.parent().saveAsAction.setEnabled(False)
             self.parent().dw.delayLine.setValue(1)
             self.parent().setWindowTitle(appname)
@@ -281,30 +282,35 @@ class MainWidget(QWidget):
             clear = True
 
         if clear:
-            filename = QFileDialog.getOpenFileName(self, "Open file", "", "*.png")
-            print("filename: '" + filename + "'")
-            if filename:
+            filenames = QFileDialog.getOpenFileNames(self, "Open file", "", "Images (*.png *.jpg)")
+            print("filenames:", filenames)
+            #To-Do: Add JPG support
+            if filenames:
                 self.list.clear()
-                self.list.filename = filename
-                im = APNG().open(filename)
-                #print("frames:", im.frames)
-                for i, (png, control) in enumerate(im.frames):
-                    #print(png, control)
-                    px = QPixmap()
+                for filename in filenames:
+                    self.list.filename = filename
+                    im = APNG().open(filename)
+                    #print("frames:", im.frames)
+                    for i, (png, control) in enumerate(im.frames):
+                        #print(png, control)
+                        px = QPixmap()
 
-                    #png.save("open{i}.png".format(i=i))
-                    px.loadFromData(png.to_bytes())
-                    #print("delay:", control.delay, ", den:", control.delay_den)
-                    item = FrameItem(px, control.delay * (1000 // control.delay_den))
-                    self.list.addItem(item)
-                    #self.list.setCurrentItem(item)
-                    #self.list.scrollToItem(item)
-                self.list.setCurrentRow(0)
-                self.list.update()
-                self.parent().enableTopToolBar()
-                self.parent().saveAction.setEnabled(False)
-                self.parent().PlayerToolBarEditMode()
-                self.parent().setWindowTitle(appname + " - " + os.path.basename(filename))
+                        #png.save("open{i}.png".format(i=i))
+                        px.loadFromData(png.to_bytes())
+                        #print("delay:", control.delay, ", den:", control.delay_den)
+                        if control:
+                            item = FrameItem(px, control.delay * (1000 // control.delay_den))
+                        else:
+                            item = FrameItem(px, 100)
+                        self.list.addItem(item)
+                        #self.list.setCurrentItem(item)
+                        #self.list.scrollToItem(item)
+                    self.list.setCurrentRow(0)
+                    self.list.update()
+                    self.parent().enableTopToolBar()
+                    self.parent().saveAction.setEnabled(False)
+                    self.parent().PlayerToolBarEditMode()
+                    self.parent().setWindowTitle(appname + " - " + os.path.basename(filename))
 
     def saveAnimation(self):
         if self.list.filename:
@@ -367,7 +373,7 @@ class MainWidget(QWidget):
             self.parent().pasteAction.setEnabled(False)
 
     def delay_handler(self, newValue):
-        if self.parent().dw.delayLine.isEnabled():
+        if self.list.count() > 0 and newValue != self.list.currentItem().delay:
             self.list.currentItem().delay = newValue
             self.parent().saveAction.setEnabled(True)
             self.MadeChanges()
