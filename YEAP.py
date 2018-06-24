@@ -258,6 +258,7 @@ class MainWidget(QWidget):
 
         if clear:
             self.list.clear()
+            self.list.filename = ""
             self.frameView.clear()
             self.parent().PlayerToolBarDisable()
             self.parent().saveAsAction.setEnabled(False)
