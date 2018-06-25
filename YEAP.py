@@ -97,6 +97,7 @@ class MainWindow(QMainWindow):
         self.loopAction = QAction(self.icons.Loop, "Loop", self)
         self.loopAction.setEnabled(False)
         self.loopAction.setCheckable(True)
+        self.loopAction.triggered.connect(self.main_widget.loopAnimation)
         self.tb2.addAction(self.loopAction)
 
         self.nextAction = QAction(self.icons.Next, "Next Frame", self)
@@ -291,6 +292,8 @@ class MainWidget(QWidget):
                     self.list.filename = filename
                     im = APNG().open(filename)
                     #print("frames:", im.frames)
+                    if im.num_plays == 0:
+                        self.parent().loopAction.setChecked(True)
                     for i, (png, control) in enumerate(im.frames):
                         #print(png, control)
                         px = QPixmap()
@@ -327,6 +330,10 @@ class MainWidget(QWidget):
     def saveFile(self, filename):
         if filename:
             im = APNG()
+            if self.parent().loopAction.isChecked():
+                im.num_plays = 0
+            else:
+                im.num_plays = 1
 
             for i in range(0, self.list.count()):
                 byteArray = QByteArray()
@@ -356,6 +363,10 @@ class MainWidget(QWidget):
         self.parent().DisableTopToolBar()
         self.list.setEnabled(False)
         self.timer.singleShot(self.list.currentItem().delay, self.advanceFrame)
+
+    def loopAnimation(self):
+        self.parent().saveAction.setEnabled(True)
+        self.MadeChanges()
 
     def stopPlaying(self):
         self.timer.stop()
@@ -462,6 +473,7 @@ class MainWidget(QWidget):
 
         elif self.parent().saveAction.isEnabled() and "*" not in self.parent().windowTitle():
             self.parent().setWindowTitle(self.parent().windowTitle() + "*")
+
 
 class FrameList(QListWidget):
     def __init__(self, parent=None):
