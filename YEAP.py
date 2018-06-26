@@ -283,7 +283,7 @@ class MainWidget(QWidget):
             clear = True
 
         if clear:
-            filenames = QFileDialog.getOpenFileNames(self, "Open file", "", "Images (*.png *.jpg)")
+            filenames = QFileDialog.getOpenFileNames(self, "Open file", "", "Images (*.apng *.png *.jpg)")
             print("filenames:", filenames)
             #To-Do: Add JPG support
             if filenames:
@@ -323,8 +323,11 @@ class MainWidget(QWidget):
 
     def saveAsAnimation(self):
         if self.list.count() > 0:
-            filename, ext = QFileDialog.getSaveFileNameAndFilter(self, "Save file", ".png", "*.png")
+            filename, ext = QFileDialog.getSaveFileNameAndFilter(self, "Save file", "", "*.png;;*.apng")
+            ext = ext[1:]
             print("filename:", filename, "Type: " + ext)
+            if ext not in filename:
+                filename += ext
             self.saveFile(filename)
 
     def saveFile(self, filename):
