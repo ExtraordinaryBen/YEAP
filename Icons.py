@@ -5,6 +5,7 @@ class Icons:
     def __init__(self):
         self.New = QIcon("icons/icons8-new-document.png")
         self.Open = QIcon("icons/icons8-open.png")
+        self.Append = QIcon("icons/icons8-add-file.png")
         self.Save = QIcon("icons/icons8-save.png")
         self.SaveAs = QIcon("icons/icons8-save-as.png")
 

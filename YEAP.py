@@ -5,13 +5,15 @@ from apng import *
 from Icons import *
 import os.path
 
-appname = "YEAP"
+APP_NAME = "YEAP"
+DEFAULT_DELAY = 100
+
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
         QMetaType.type("QItemSelection")
-        self.setWindowTitle(appname)
+        self.setWindowTitle(APP_NAME)
         self.icons = Icons()
         self.setWindowIcon(self.style().standardIcon(QStyle.SP_TitleBarMenuButton))
         #self.setMinimumSize(500, 350)
@@ -34,6 +36,11 @@ class MainWindow(QMainWindow):
         self.openAction = QAction(self.icons.Open, "Open", self)
         self.tb.addAction(self.openAction)
         self.openAction.triggered.connect(self.main_widget.openAnimation)
+
+        self.appendAction = QAction(self.icons.Append, "Append", self)
+        self.tb.addAction(self.appendAction)
+        self.appendAction.triggered.connect(self.main_widget.appendAnimation)
+        self.appendAction.setEnabled(False)
 
         self.saveAction = QAction(self.icons.Save, "Save", self)
         self.tb.addAction(self.saveAction)
@@ -135,8 +142,9 @@ class MainWindow(QMainWindow):
     def enableTopToolBar(self):
         self.newAction.setEnabled(True)
         self.openAction.setEnabled(True)
+        self.appendAction.setEnabled(True)
         #self.saveAction.setEnabled(True)
-        self.main_widget.CheckForChanges()
+        #self.main_widget.CheckForChanges()
         self.saveAsAction.setEnabled(True)
         self.copyAction.setEnabled(True)
         self.deleteAction.setEnabled(True)
@@ -144,6 +152,7 @@ class MainWindow(QMainWindow):
     def DisableTopToolBar(self):
         self.newAction.setEnabled(False)
         self.openAction.setEnabled(False)
+        self.appendAction.setEnabled(False)
         self.saveAction.setEnabled(False)
         self.saveAsAction.setEnabled(False)
         self.copyAction.setEnabled(False)
@@ -207,7 +216,7 @@ class MainWidget(QWidget):
         self.list = FrameList(self)
         self.list.currentItemChanged.connect(self.frame_change)
         self.list.itemSelectionChanged.connect(self.check_selection)
-        self.list.itemChanged.connect(self.movedFrame)
+        #self.list.itemChanged.connect(self.movedFrame)
         #self.list.setFocusPolicy(Qt.NoFocus)
 
         self.layout.addWidget(self.list)
@@ -221,106 +230,107 @@ class MainWidget(QWidget):
         self.setLayout(self.layout)
 
     def firstFrame(self):
-        self.list.setCurrentRow(0)
+        self.list.setCurrentRow(0, QItemSelectionModel.ClearAndSelect)
 
     def backFrame(self):
         curRow = self.list.currentRow()
         if curRow > 0:
-            self.list.setCurrentRow(curRow - 1)
+            self.list.setCurrentRow(curRow - 1, QItemSelectionModel.ClearAndSelect)
 
     def nextFrame(self):
         curRow = self.list.currentRow()
         if curRow < self.list.count() - 1:
-            self.list.setCurrentRow(curRow + 1)
+            self.list.setCurrentRow(curRow + 1, QItemSelectionModel.ClearAndSelect)
+            return True
+        else:
+            return False
 
     def lastFrame(self):
-        self.list.setCurrentRow(self.list.count() - 1)
+        self.list.setCurrentRow(self.list.count() - 1, QItemSelectionModel.ClearAndSelect)
 
     def advanceFrame(self):
         if self.playing is True:
-            if (self.list.currentRow() < self.list.count() - 1):
-                self.list.setCurrentRow(self.list.currentRow() + 1)
+            if self.nextFrame():
                 self.timer.singleShot(self.list.currentItem().delay, self.advanceFrame)
             elif (self.list.currentRow() == self.list.count() - 1) and (
                     self.parent().loopAction.isChecked()):
-                self.list.setCurrentRow(0)
+                self.firstFrame()
                 self.timer.singleShot(self.list.currentItem().delay, self.advanceFrame)
             else:
                 self.stopPlaying()
 
     def newAnimation(self):
-        clear = False
         if self.parent().saveAction.isEnabled():
             result = QMessageBox.question(self, "Unsaved Changes",
             "Do you want to save changes before creating a new animation?",
             QMessageBox.Cancel | QMessageBox.Save | QMessageBox.Discard, QMessageBox.Save)
 
-            if result != QMessageBox.Cancel:
-                if result == QMessageBox.Save:
-                    self.saveAnimation()
+            if result == QMessageBox.Cancel:
+                return
+            elif result == QMessageBox.Save:
+                self.saveAnimation()
 
-                clear = True
-        else:
-            clear = True
+        self.list.clear()
+        self.list.filename = ""
+        self.frameView.clear()
+        self.parent().PlayerToolBarDisable()
+        self.parent().saveAction.setEnabled(False)
+        self.parent().saveAsAction.setEnabled(False)
+        self.parent().appendAction.setEnabled(False)
+        self.parent().dw.delayLine.setValue(DEFAULT_DELAY)
+        self.parent().setWindowTitle(APP_NAME)
 
-        if clear:
-            self.list.clear()
-            self.list.filename = ""
-            self.frameView.clear()
-            self.parent().PlayerToolBarDisable()
-            self.parent().saveAction.setEnabled(False)
-            self.parent().saveAsAction.setEnabled(False)
-            self.parent().dw.delayLine.setValue(1)
-            self.parent().setWindowTitle(appname)
+    def appendAnimation(self):
+        filenames = QFileDialog.getOpenFileNames(self, "Select file(s) to Append", "", "Images (*.apng *.png *.jpg)")
+        if filenames:
+            print("filenames:", filenames)
+            for filename in filenames:
+                self.openFile(filename)
+        self.ChangesMade()
 
     def openAnimation(self):
-        clear = False
         if self.parent().saveAction.isEnabled():
             result = QMessageBox.question(self, "Unsaved Changes",
             "Do you want to save changes before opening an animation?",
             QMessageBox.Cancel | QMessageBox.Save | QMessageBox.Discard, QMessageBox.Save)
 
-            if result != QMessageBox.Cancel:
-                if result == QMessageBox.Save:
-                    self.saveAnimation()
+            if result == QMessageBox.Cancel:
+                return
+            elif result == QMessageBox.Save:
+                self.saveAnimation()
 
-                clear = True
-        else:
-            clear = True
-
-        if clear:
-            filenames = QFileDialog.getOpenFileNames(self, "Open file", "", "Images (*.apng *.png *.jpg)")
+        filenames = QFileDialog.getOpenFileNames(self, "Open file(s)", "", "Images (*.apng *.png *.jpg)")
+        if filenames:
             print("filenames:", filenames)
-            #To-Do: Add JPG support
-            if filenames:
-                self.list.clear()
-                self.frameView.clear()
-                for filename in filenames:
-                    self.list.filename = filename
-                    im = APNG().open(filename)
-                    #print("frames:", im.frames)
-                    if im.num_plays == 0:
-                        self.parent().loopAction.setChecked(True)
-                    for i, (png, control) in enumerate(im.frames):
-                        #print(png, control)
-                        px = QPixmap()
+            self.list.clear()
+            self.frameView.clear()
+            for filename in filenames:
+                self.openFile(filename)
 
-                        #png.save("open{i}.png".format(i=i))
-                        px.loadFromData(png.to_bytes())
-                        #print("delay:", control.delay, ", den:", control.delay_den)
-                        if control:
-                            item = FrameItem(px, control.delay * (1000 // control.delay_den))
-                        else:
-                            item = FrameItem(px, 100)
-                        self.list.addItem(item)
-                        #self.list.setCurrentItem(item)
-                        #self.list.scrollToItem(item)
-                    self.list.setCurrentRow(0)
-                    self.list.update()
-                    self.parent().enableTopToolBar()
-                    self.parent().saveAction.setEnabled(False)
-                    self.parent().PlayerToolBarEditMode()
-                    self.parent().setWindowTitle(appname + " - " + os.path.basename(filename))
+    def openFile(self, filename):
+        #To-Do: Add JPG support
+        self.setFilename(filename)
+        im = APNG().open(filename)
+        if im.num_plays == 0:
+            self.parent().loopAction.setChecked(True)
+        for i, (png, control) in enumerate(im.frames):
+            px = QPixmap()
+            px.loadFromData(png.to_bytes())
+            if control:
+                item = FrameItem(px, control.delay * (1000 // control.delay_den))
+            else:
+                item = FrameItem(px, DEFAULT_DELAY)
+            self.list.addItem(item)
+
+        self.firstFrame()
+        self.list.update()
+        self.parent().enableTopToolBar()
+        self.parent().saveAction.setEnabled(False)
+        self.parent().PlayerToolBarEditMode()
+
+    def setFilename(self, name):
+        self.list.filename = name
+        self.parent().setWindowTitle(APP_NAME + " - " + os.path.basename(name))
 
     def saveAnimation(self):
         if self.list.filename:
@@ -354,8 +364,7 @@ class MainWidget(QWidget):
                 im.append(png, delay=self.list.item(i).delay)
 
             im.save(filename)
-            self.list.filename = filename
-            self.parent().setWindowTitle(appname + " - " + os.path.basename(filename))
+            self.setFilename(filename)
             self.parent().saveAction.setEnabled(False)
 
     def playBeginningAnimation(self):
@@ -381,6 +390,7 @@ class MainWidget(QWidget):
         self.list.setEnabled(True)
         self.parent().dw.delayLine.setEnabled(True)
         self.playing = False
+        self.CheckForChanges()
 
     def cb_handler(self):
         print("Clipboard data changed!")
@@ -392,7 +402,7 @@ class MainWidget(QWidget):
     def delay_handler(self, newValue):
         if self.list.count() > 0 and newValue != self.list.currentItem().delay:
             self.list.currentItem().delay = newValue
-            self.ChangesMake()
+            self.ChangesMade()
             print("New delay", self.list.currentItem().delay)
 
     def copyFrame(self):
@@ -416,7 +426,7 @@ class MainWidget(QWidget):
         self.list.update()
         self.parent().enableTopToolBar()
         self.parent().PlayerToolBarEditMode()
-        #self.ChangesMade()
+        self.ChangesMade()
 
     def deleteFrames(self):
         items = self.list.selectedItems()
@@ -475,7 +485,12 @@ class MainWidget(QWidget):
             self.parent().deleteAction.setEnabled(False)
 
     def movedFrame(self, item):
-        self.ChangesMade()
+        print("Item modified:", item.text(), self.list.row(item) + 1)
+        newRow = str(self.list.row(item) + 1)
+        if item.text() != newRow:
+            print("row changed!")
+            item.setText(newRow)
+            #self.ChangesMade()
 
     def ChangesMade(self):
         self.parent().saveAction.setEnabled(True)
@@ -509,7 +524,9 @@ class FrameList(QListWidget):
 
     def dropEvent(self, event):
         super(FrameList, self).dropEvent(event)
+        print("Drop event called!")
         self.update()
+        self.parent().ChangesMade()
 
     def update(self):
         for i in range(0, self.count()):
@@ -520,8 +537,7 @@ class FrameItem(QListWidgetItem):
     def __init__(self, pixmap, delay=100, parent=None):
         super(FrameItem, self).__init__(parent)
         self.frame = pixmap
-        self.icon = QIcon(self.frame)
-        self.setIcon(self.icon)
+        self.setIcon(QIcon(self.frame))
         self.setSizeHint(QSize(100, 100))
         self.delay = delay
         self.setTextAlignment(Qt.AlignVCenter | Qt.AlignRight)
