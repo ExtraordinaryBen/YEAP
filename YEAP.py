@@ -47,6 +47,11 @@ class MainWindow(QMainWindow):
 
         self.tb.addWidget(SpacerWidget())
 
+        #self.undoAction = QAction(self.icons.Undo, "Undo", self)
+        #self.tb.addAction(self.undoAction)
+        #self.undoAction.triggered.connect(self.main_widget.undoLastAction)
+        #self.undoAction.setEnabled(False)
+
         self.copyAction = QAction(self.icons.Copy, "Copy", self)
         self.tb.addAction(self.copyAction)
         self.copyAction.triggered.connect(self.main_widget.copyFrame)
@@ -97,7 +102,7 @@ class MainWindow(QMainWindow):
         self.loopAction = QAction(self.icons.Loop, "Loop", self)
         self.loopAction.setEnabled(False)
         self.loopAction.setCheckable(True)
-        self.loopAction.triggered.connect(self.main_widget.loopAnimation)
+        self.loopAction.triggered.connect(self.main_widget.ChangesMade)
         self.tb2.addAction(self.loopAction)
 
         self.nextAction = QAction(self.icons.Next, "Next Frame", self)
@@ -131,7 +136,7 @@ class MainWindow(QMainWindow):
         self.newAction.setEnabled(True)
         self.openAction.setEnabled(True)
         #self.saveAction.setEnabled(True)
-        self.main_widget.MadeChanges()
+        self.main_widget.CheckForChanges()
         self.saveAsAction.setEnabled(True)
         self.copyAction.setEnabled(True)
         self.deleteAction.setEnabled(True)
@@ -202,6 +207,7 @@ class MainWidget(QWidget):
         self.list = FrameList(self)
         self.list.currentItemChanged.connect(self.frame_change)
         self.list.itemSelectionChanged.connect(self.check_selection)
+        self.list.itemChanged.connect(self.movedFrame)
         #self.list.setFocusPolicy(Qt.NoFocus)
 
         self.layout.addWidget(self.list)
@@ -288,6 +294,7 @@ class MainWidget(QWidget):
             #To-Do: Add JPG support
             if filenames:
                 self.list.clear()
+                self.frameView.clear()
                 for filename in filenames:
                     self.list.filename = filename
                     im = APNG().open(filename)
@@ -367,10 +374,6 @@ class MainWidget(QWidget):
         self.list.setEnabled(False)
         self.timer.singleShot(self.list.currentItem().delay, self.advanceFrame)
 
-    def loopAnimation(self):
-        self.parent().saveAction.setEnabled(True)
-        self.MadeChanges()
-
     def stopPlaying(self):
         self.timer.stop()
         self.parent().enableTopToolBar()
@@ -389,8 +392,7 @@ class MainWidget(QWidget):
     def delay_handler(self, newValue):
         if self.list.count() > 0 and newValue != self.list.currentItem().delay:
             self.list.currentItem().delay = newValue
-            self.parent().saveAction.setEnabled(True)
-            self.MadeChanges()
+            self.ChangesMake()
             print("New delay", self.list.currentItem().delay)
 
     def copyFrame(self):
@@ -413,9 +415,8 @@ class MainWidget(QWidget):
         self.list.scrollToItem(item)
         self.list.update()
         self.parent().enableTopToolBar()
-        self.parent().saveAction.setEnabled(True)
         self.parent().PlayerToolBarEditMode()
-        self.MadeChanges()
+        #self.ChangesMade()
 
     def deleteFrames(self):
         items = self.list.selectedItems()
@@ -430,7 +431,10 @@ class MainWidget(QWidget):
             self.list.setCurrentRow(row)
             self.list.scrollToItem(self.list.currentItem())
             self.list.update()
-            self.MadeChanges()
+            self.ChangesMade()
+            if self.list.count() == 0:
+                self.frameView.clear()
+                self.parent().PlayerToolBarDisable()
 
     def keyPressEvent(self, event):
         if event.matches(QKeySequence.Paste) and (event.isAutoRepeat() is False
@@ -470,7 +474,14 @@ class MainWidget(QWidget):
             self.parent().copyAction.setEnabled(False)
             self.parent().deleteAction.setEnabled(False)
 
-    def MadeChanges(self):
+    def movedFrame(self, item):
+        self.ChangesMade()
+
+    def ChangesMade(self):
+        self.parent().saveAction.setEnabled(True)
+        self.CheckForChanges()
+
+    def CheckForChanges(self):
         if not self.parent().saveAction.isEnabled() and "*" in self.parent().windowTitle():
             self.parent().saveAction.setEnabled(True)
 
