@@ -216,7 +216,6 @@ class MainWidget(QWidget):
         self.list = FrameList(self)
         self.list.currentItemChanged.connect(self.frame_change)
         self.list.itemSelectionChanged.connect(self.check_selection)
-        #self.list.itemChanged.connect(self.movedFrame)
         #self.list.setFocusPolicy(Qt.NoFocus)
 
         self.layout.addWidget(self.list)
@@ -433,6 +432,8 @@ class MainWidget(QWidget):
         if items:
             print("Delete key and something selected!!!")
             for item in items:
+                if self.list.count() == 1:
+                    return
                 row = self.list.row(item)
                 self.list.takeItem(row)
                 if row >= self.list.count():
@@ -483,14 +484,6 @@ class MainWidget(QWidget):
         else:
             self.parent().copyAction.setEnabled(False)
             self.parent().deleteAction.setEnabled(False)
-
-    def movedFrame(self, item):
-        print("Item modified:", item.text(), self.list.row(item) + 1)
-        newRow = str(self.list.row(item) + 1)
-        if item.text() != newRow:
-            print("row changed!")
-            item.setText(newRow)
-            #self.ChangesMade()
 
     def ChangesMade(self):
         self.parent().saveAction.setEnabled(True)
