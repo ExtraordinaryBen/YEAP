@@ -8,6 +8,7 @@ class Icons:
         self.Append = QIcon("icons/icons8-add-file.png")
         self.Save = QIcon("icons/icons8-save.png")
         self.SaveAs = QIcon("icons/icons8-save-as.png")
+        self.Movie = QIcon("icons/icons8-movie-roll.png")
 
         self.Play = QIcon("icons/icons8-play-button.png")
         self.PlayBeginning = QIcon("icons/icons8-replay.png")
@@ -21,6 +22,8 @@ class Icons:
         self.Copy = QIcon("icons/icons8-copy.png")
         self.Paste = QIcon("icons/icons8-paste.png")
         self.Delete = QIcon("icons/icons8-removing-sign.png")
+
+        self.Options = QIcon("icons/icons8-gear-outline.png")
 
         self.Undo = QIcon("icons/icons8-undo.png")
         self.Redo = QIcon("icons/icons8-redo.png")

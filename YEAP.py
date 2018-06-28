@@ -4,6 +4,7 @@ from PyQt4.QtGui import *
 from apng import *
 from Icons import *
 import os.path
+import ffmpeg
 
 APP_NAME = "YEAP"
 DEFAULT_DELAY = 100
@@ -52,6 +53,11 @@ class MainWindow(QMainWindow):
         self.saveAsAction.triggered.connect(self.main_widget.saveAsAnimation)
         self.saveAsAction.setEnabled(False)
 
+        self.exportMP4Action = QAction(self.icons.Movie, "Export to MP4", self)
+        self.tb.addAction(self.exportMP4Action)
+        self.exportMP4Action.triggered.connect(self.main_widget.exportAnimation)
+        self.exportMP4Action.setEnabled(False)
+
         self.tb.addWidget(SpacerWidget())
 
         #self.undoAction = QAction(self.icons.Undo, "Undo", self)
@@ -73,6 +79,22 @@ class MainWindow(QMainWindow):
         self.tb.addAction(self.deleteAction)
         self.deleteAction.triggered.connect(self.main_widget.deleteFrames)
         self.deleteAction.setEnabled(False)
+
+        self.tb.addSeparator()
+
+        self.optionsMenu = QMenu("Options", self)
+        self.hideListAction = QAction("Hide Frame Reel", self.optionsMenu)
+        self.hideListAction.setCheckable(True)
+        self.hideListAction.triggered.connect(self.main_widget.toggleList)
+        self.optionsMenu.addAction(self.hideListAction)
+
+        self.optionButton = QToolButton(self)
+        self.optionButton.setPopupMode(QToolButton.InstantPopup)
+        self.optionButton.setFocusPolicy(Qt.NoFocus)
+        self.optionButton.setIcon(self.icons.Options)
+        self.optionButton.setMenu(self.optionsMenu)
+        self.tb.addWidget(self.optionButton)
+        #self.optionsMenu.triggered.connect()
 
         #Bottom ToolBar
         self.tb2 = QToolBar("PlayerControls")
@@ -146,6 +168,7 @@ class MainWindow(QMainWindow):
         #self.saveAction.setEnabled(True)
         #self.main_widget.CheckForChanges()
         self.saveAsAction.setEnabled(True)
+        self.exportMP4Action.setEnabled(True)
         self.copyAction.setEnabled(True)
         self.deleteAction.setEnabled(True)
 
@@ -155,6 +178,7 @@ class MainWindow(QMainWindow):
         self.appendAction.setEnabled(False)
         self.saveAction.setEnabled(False)
         self.saveAsAction.setEnabled(False)
+        self.exportMP4Action.setEnabled(False)
         self.copyAction.setEnabled(False)
         self.pasteAction.setEnabled(False)
         self.deleteAction.setEnabled(False)
@@ -207,9 +231,10 @@ class MainWindow(QMainWindow):
 class MainWidget(QWidget):
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
+        #self.setStyleSheet("background-color:red;")
         self.layout = QHBoxLayout(self)
         self.frameView = QLabel(self)
-        self.frameView.setMinimumSize(200, 200)
+        self.frameView.setMinimumSize(300, 300)
         self.layout.addStretch()
         self.layout.addWidget(self.frameView)
         self.layout.addStretch()
@@ -258,16 +283,23 @@ class MainWidget(QWidget):
             else:
                 self.stopPlaying()
 
-    def newAnimation(self):
+    def checkIfAnimationSaved(self, message):
         if self.parent().saveAction.isEnabled():
             result = QMessageBox.question(self, "Unsaved Changes",
-            "Do you want to save changes before creating a new animation?",
+            "Do you want to save changes before " + message + "?",
             QMessageBox.Cancel | QMessageBox.Save | QMessageBox.Discard, QMessageBox.Save)
 
             if result == QMessageBox.Cancel:
-                return
+                return False
             elif result == QMessageBox.Save:
                 self.saveAnimation()
+                return True
+
+        return True
+
+    def newAnimation(self):
+        if not self.checkIfAnimationSaved("creating a new animation"):
+            return
 
         self.list.clear()
         self.list.filename = ""
@@ -275,6 +307,7 @@ class MainWidget(QWidget):
         self.parent().PlayerToolBarDisable()
         self.parent().saveAction.setEnabled(False)
         self.parent().saveAsAction.setEnabled(False)
+        self.parent().exportMP4Action.setEnabled(False)
         self.parent().appendAction.setEnabled(False)
         self.parent().dw.delayLine.setValue(DEFAULT_DELAY)
         self.parent().setWindowTitle(APP_NAME)
@@ -288,15 +321,8 @@ class MainWidget(QWidget):
         self.ChangesMade()
 
     def openAnimation(self):
-        if self.parent().saveAction.isEnabled():
-            result = QMessageBox.question(self, "Unsaved Changes",
-            "Do you want to save changes before opening an animation?",
-            QMessageBox.Cancel | QMessageBox.Save | QMessageBox.Discard, QMessageBox.Save)
-
-            if result == QMessageBox.Cancel:
-                return
-            elif result == QMessageBox.Save:
-                self.saveAnimation()
+        if not self.checkIfAnimationSaved("opening an animation"):
+            return
 
         filenames = QFileDialog.getOpenFileNames(self, "Open file(s)", "", "Images (*.apng *.png *.jpg)")
         if filenames:
@@ -340,11 +366,12 @@ class MainWidget(QWidget):
     def saveAsAnimation(self):
         if self.list.count() > 0:
             filename, ext = QFileDialog.getSaveFileNameAndFilter(self, "Save file", "", "*.png;;*.apng")
-            ext = ext[1:]
-            print("filename:", filename, "Type: " + ext)
-            if ext not in filename:
-                filename += ext
-            self.saveFile(filename)
+            if filename:
+                ext = ext[1:]
+                print("filename:", filename, "Type: " + ext)
+                if ext not in filename:
+                    filename += ext
+                self.saveFile(filename)
 
     def saveFile(self, filename):
         if filename:
@@ -365,6 +392,25 @@ class MainWidget(QWidget):
             im.save(filename)
             self.setFilename(filename)
             self.parent().saveAction.setEnabled(False)
+
+    def exportAnimation(self):
+        if not self.checkIfAnimationSaved("exporting"):
+            return
+
+        filename, ext = QFileDialog.getSaveFileNameAndFilter(self, "Save file", ".mp4", "*.mp4")
+        if filename:
+            ext = ext[1:]
+            print("filename:", filename, "Type: " + ext)
+            if ext not in filename:
+                filename += ext
+            print("new filename", filename)
+            (ffmpeg
+                .input(self.list.filename)
+                .output(filename, pix_fmt='yuv420p',
+                    tune='animation', vf='scale=trunc(iw/2)*2:trunc(ih/2)*2')
+                .overwrite_output()
+                .run()
+            )
 
     def playBeginningAnimation(self):
         self.list.setCurrentRow(0)
@@ -496,6 +542,12 @@ class MainWidget(QWidget):
         elif self.parent().saveAction.isEnabled() and "*" not in self.parent().windowTitle():
             self.parent().setWindowTitle(self.parent().windowTitle() + "*")
 
+    def toggleList(self, checked):
+        if checked:
+            self.list.hide()
+        else:
+            self.list.show()
+
 
 class FrameList(QListWidget):
     def __init__(self, parent=None):
@@ -540,7 +592,6 @@ class DelayWidget(QWidget):
     def __init__(self, image, parent=None):
         super(DelayWidget, self).__init__(parent)
         #self.setContentsMargins(0, 0, 0, 0)
-        #self.setStyleSheet("background-color:red;")
         hlayout = QHBoxLayout(self)
         hlayout.setContentsMargins(0, 0, 0, 0)
 
@@ -551,6 +602,7 @@ class DelayWidget(QWidget):
 
         self.delayLine = QSpinBox(self)
         self.delayLine.setRange(1, 9999)
+        self.delayLine.setValue(100)
         self.delayLine.setSingleStep(5)
         self.delayLine.setEnabled(False)
         #validator = QIntValidator(1, 9999, self)
@@ -568,6 +620,7 @@ class SpacerWidget(QWidget):
     def __init__(self, parent=None):
         super(SpacerWidget, self).__init__(parent)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setStyleSheet("background-color: purple")
 
 
 class MyPNG(PNG):
