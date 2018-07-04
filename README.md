@@ -14,3 +14,10 @@ files.
 - Export to MP4 with FFMPEG _(coming soon!)_
 
 [APNG]: https://en.wikipedia.org/wiki/APNG
+
+## Dependencies
+- [PyQt4](https://pypi.org/project/PyQt4/)
+- [pyAPNG](https://github.com/eight04/pyAPNG)
+- [ffmpeg-python](https://github.com/kkroening/ffmpeg-python) - **Optional** Used for MP4 exporting.
+
+
